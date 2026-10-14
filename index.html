@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Agent Mahesabu</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;600&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: ledger-style workbench. Tabs on top, one job per tab, summary before detail. */
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --soft:#E4EAF0; --ink:#14202B; --muted:#5B6B7A; --line:#D5DCE3;
+  --dep:#0B7A82; --wd:#C4551B; --ok:#1E7A45; --warn:#8F6200; --bad:#B3261E; --focus:#2457D6;
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Public Sans','Segoe UI',system-ui,sans-serif;
+  --f-data:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E151C; --surface:#16212B; --soft:#1D2B38; --ink:#E6ECF1; --muted:#93A3B2; --line:#27384A;
+  --dep:#3CC3CC; --wd:#F08A55; --ok:#5ACB86; --warn:#E0B24A; --bad:#FF7A70; --focus:#7BA2FF; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E151C; --surface:#16212B; --soft:#1D2B38; --ink:#E6ECF1; --muted:#93A3B2; --line:#27384A;
+  --dep:#3CC3CC; --wd:#F08A55; --ok:#5ACB86; --warn:#E0B24A; --bad:#FF7A70; --focus:#7BA2FF; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;
+  padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:28px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:19px;font-weight:700}
+h3{font-size:15px;font-weight:600}
+p{margin:0}
+.sub{color:var(--muted);max-width:62ch}
+.mono,.num{font-family:var(--f-data);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end;justify-content:space-between}
+.chip{font-size:12px;border:1px solid var(--line);background:var(--surface);padding:4px 10px;border-radius:99px;color:var(--muted)}
+.chip b{color:var(--ink);font-weight:600}
+nav{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line)}
+nav button{font:600 14px var(--f-body);background:none;border:0;color:var(--muted);padding:10px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--dep)}
+nav button small{display:block;font-weight:400;font-size:11px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.grid{display:grid;gap:16px;min-width:0}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.kpi{background:var(--surface);padding:12px 14px;min-width:0}
+.kpi span{display:block;font-size:12px;color:var(--muted)}
+.kpi strong{display:block;font:600 19px var(--f-data);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kpi.dep strong{color:var(--dep)} .kpi.wd strong{color:var(--wd)}
+.btn{font:600 13px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:5px;cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn[aria-pressed="true"]{background:var(--soft);border-color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+input,select,textarea{font:14px var(--f-data);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;width:100%;min-width:0}
+textarea{min-height:70px;font-size:12px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.note{font-size:12px;color:var(--muted)}
+.msg{font-size:13px;padding:8px 10px;border-radius:4px;background:var(--soft)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+td.r,th.r{text-align:right}
+.scroll{overflow-x:auto}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;letter-spacing:.02em}
+.pill.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 15%,transparent)}
+.pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 17%,transparent)}
+.pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}
+.neg{color:var(--bad)} .pos{color:var(--ok)}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar{display:grid;grid-template-columns:92px 1fr 88px;gap:8px;align-items:center;font-size:12px}
+.bar .t{height:14px;background:var(--soft);border-radius:2px;overflow:hidden}
+.bar .t i{display:block;height:100%}
+.bar.top .lbl{font-weight:600}
+.dep-fill{background:var(--dep)} .wd-fill{background:var(--wd)}
+.hm{display:grid;grid-template-columns:34px repeat(19,minmax(18px,1fr));gap:2px;min-width:520px;align-items:center}
+.hm i{display:block;aspect-ratio:1;border-radius:2px;background:color-mix(in srgb,var(--c) calc(var(--i)*100%),var(--soft))}
+.hm span{font-size:10px;color:var(--muted);text-align:center}
+.hm span.d{text-align:left}
+.hm.dep{--c:var(--dep)} .hm.wd{--c:var(--wd)}
+.dom{display:grid;grid-template-columns:repeat(31,1fr);gap:2px;align-items:end;height:110px;min-width:420px}
+.dom i{display:block;background:var(--dep);border-radius:2px 2px 0 0;min-height:2px}
+.dom i.late{background:var(--wd)}
+.domax{display:grid;grid-template-columns:repeat(31,1fr);gap:2px;min-width:420px;font-size:9px;color:var(--muted);text-align:center}
+.peaks{display:flex;flex-direction:column;gap:6px}
+.peaks div{display:flex;justify-content:space-between;gap:10px;font-size:13px;border-bottom:1px dashed var(--line);padding-bottom:5px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.amt{font:12px var(--f-data);background:var(--soft);padding:3px 8px;border-radius:4px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+svg{max-width:100%;height:auto;display:block}
+.ax{fill:var(--muted);font:10px var(--f-data)}
+.gridl{stroke:var(--line);stroke-width:1}
+.thr{stroke-width:1.5;stroke-dasharray:5 4;fill:none}
+.l-dep{stroke:var(--dep);fill:none;stroke-width:2.5} .l-wd{stroke:var(--wd);fill:none;stroke-width:2.5}
+.f-dep{fill:var(--dep)} .f-wd{fill:var(--wd)} .f-bad{fill:var(--bad)}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:5px;background:var(--bg)}
+.empty{padding:28px 8px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+@media (max-width:600px){
+  body{font-size:15px}
+  h1{font-size:23px} h2{font-size:18px}
+  input,select,textarea{font-size:16px;min-height:42px}
+  textarea{min-height:90px;font-size:14px}
+  .btn{min-height:42px;padding:9px 14px}
+  .btn.sm{min-height:38px}
+  .card{padding:14px}
+  nav{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  nav button{text-align:left;padding:10px 8px;border-bottom:3px solid transparent;border-top:1px solid var(--line)}
+  nav button[aria-selected="true"]{background:var(--soft)}
+  .kpis{grid-template-columns:1fr 1fr}
+  .fields{grid-template-columns:1fr 1fr}
+  .fields label:has(input[type="datetime-local"]),.fields label:has(input[type="text"]){grid-column:1/-1}
+  .bar{grid-template-columns:78px 1fr 74px}
+  .hm{min-width:0;gap:1px;grid-template-columns:26px repeat(19,minmax(0,1fr))}
+  .hm span{font-size:9px}
+  .dom,.domax{min-width:0;gap:1px}
+  .stack thead{display:none}
+  .stack,.stack tbody,.stack tr,.stack td{display:block;width:100%}
+  .stack tr{border:1px solid var(--line);border-radius:6px;padding:6px 10px;margin-bottom:10px;background:var(--bg)}
+  .stack td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;padding:5px 0;white-space:normal;text-align:right}
+  .stack td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;flex:none}
+  .stack td:empty{display:none}
+  .row>input[type="file"]{max-width:100%!important}
+  .alert{flex-wrap:wrap}
+}
+@media (max-width:360px){.fields{grid-template-columns:1fr}.kpi strong{font-size:16px}}
+@media (prefers-reduced-motion:no-preference){.bar .t i{transition:width .3s}}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
+body{margin:0}
+:root{color-scheme:light}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Agent Mahesabu</h1>
+      <p class="sub">Float, commission and attendant cash-up for an M-Pesa and airtime shop. Works from your daily Safaricom statement.</p>
+    </div>
+    <div class="chip" id="status"></div>
+  </header>
+  <nav role="tablist" id="tabs"></nav>
+  <main id="view"></main>
+</div>
+
+<script>
+'use strict';
+/* ---------- state ---------- */
+var KEY='agent-mahesabu-v1';
+var DEFAULT_BANDS=[[1,100,0,0],[101,500,0,0],[501,1000,0,0],[1001,2500,0,0],[2501,5000,0,0],[5001,10000,0,0],[10001,20000,0,0],[20001,35000,0,0],[35001,70000,0,0]];
+var S={txns:[],shifts:[],bands:DEFAULT_BANDS.map(function(b){return b.slice()}),payout:0,sample:false,tab:'insights',range:'all',hm:'dep'};
+try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);for(var k in p)S[k]=p[k]}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ---------- helpers ---------- */
+var $=function(id){return document.getElementById(id)};
+var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+var nf=function(n){return Math.round(n).toLocaleString('en-KE')};
+var kes=function(n){return 'KES '+nf(n)};
+var sk=function(n){var a=Math.abs(n);return a>=1e6?(n/1e6).toFixed(1)+'M':a>=1e3?Math.round(n/1e3)+'k':String(Math.round(n))};
+var DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+var dow=function(d){return (d.getDay()+6)%7};
+var pad=function(n){return String(n).padStart(2,'0')};
+var dkey=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+var inp=function(d){return dkey(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes())};
+var hr=function(h){return pad(h)+':00'};
+
+/* ---------- statement parsing (CSV / pasted text) ---------- */
+function parseCSV(t){
+  var rows=[],row=[],cur='',q=false;
+  for(var i=0;i<t.length;i++){
+    var c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}
+    else if(c==='"')q=true;
+    else if(c===','||c==='\t'||c===';'){row.push(cur);cur=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cur);rows.push(row);row=[];cur=''}
+    else cur+=c;
+  }
+  if(cur||row.length){row.push(cur);rows.push(row)}
+  return rows.map(function(r){return r.map(function(x){return x.trim()})});
+}
+function parseTime(s){
+  var m=/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/.exec(s);
+  if(m)return new Date(+m[1],m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)).getTime();
+  m=/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})[ T,]+(\d{1,2}):(\d{2})/.exec(s);
+  if(m)return new Date(+m[3],m[2]-1,+m[1],+m[4],+m[5]).getTime();
+  return NaN;
+}
+var num=function(s){return parseFloat(String(s||'').replace(/[^0-9.\-]/g,''))||0};
+function classify(d){
+  d=d.toLowerCase();
+  if(/commission/.test(d))return 'com';
+  if(/withdraw/.test(d))return 'wd';
+  if(/deposit/.test(d))return 'dep';
+  if(/airtime|bundle/.test(d))return 'air';
+  return null;
+}
+function parseStatement(text){
+  var rows=parseCSV(text),h=-1,col={};
+  for(var i=0;i<rows.length;i++){
+    var j=rows[i].join('|').toLowerCase();
+    if(/receipt/.test(j)&&/(time|date)/.test(j)&&/(detail|description|type)/.test(j)){h=i;break}
+  }
+  if(h<0)return{error:'No header row found. Expected columns like Receipt No, Completion Time, Details, Paid In, Withdrawn.'};
+  rows[h].forEach(function(c,i){
+    c=c.toLowerCase();
+    if(/receipt/.test(c))col.id=i;
+    else if(/completion|time|date/.test(c)&&col.t==null)col.t=i;
+    else if(/detail|description/.test(c))col.d=i;
+    else if(/status/.test(c))col.s=i;
+    else if(/paid in|credit/.test(c))col.pi=i;
+    else if(/withdrawn|paid out|debit/.test(c))col.wo=i;
+    else if(/^amount/.test(c))col.a=i;
+    else if(/balance/.test(c))col.b=i;
+  });
+  if(col.t==null||col.d==null)return{error:'Could not find the time and details columns.'};
+  var out=[],skipped=0;
+  for(var r=h+1;r<rows.length;r++){
+    var x=rows[r];
+    if(x.length<3){continue}
+    var t=parseTime(x[col.t]||''),ty=classify(x[col.d]||'');
+    if(col.s!=null&&x[col.s]&&!/complete/i.test(x[col.s])){skipped++;continue}
+    if(isNaN(t)||!ty){skipped++;continue}
+    var a=col.a!=null?Math.abs(num(x[col.a])):Math.max(num(x[col.pi]),num(x[col.wo]));
+    if(!a){skipped++;continue}
+    out.push({id:x[col.id]||('R'+t+'-'+a),t:t,type:ty,amt:a});
+  }
+  return{txns:out,skipped:skipped};
+}
+function importText(text){
+  var res=parseStatement(text),el=$('msg');
+  if(res.error){el.textContent=res.error;el.hidden=false;return}
+  if(S.sample){S.txns=[];S.shifts=S.shifts.filter(function(s){return !s.sample});S.sample=false}
+  var seen={};S.txns.forEach(function(t){seen[t.id]=1});
+  var add=res.txns.filter(function(t){return !seen[t.id]});
+  S.txns=S.txns.concat(add).sort(function(a,b){return a.t-b.t});
+  save();
+  el.textContent='Read '+res.txns.length+' lines: '+add.length+' new, '+(res.txns.length-add.length)+' already in the app, '+res.skipped+' skipped (not a deposit, withdrawal, airtime or commission line).';
+  el.hidden=false;
+  head();
+  var keep=el.textContent;render();$('msg').textContent=keep;$('msg').hidden=false;
+}
+
+/* ---------- sample data ---------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function pick(r,list){var tot=0;list.forEach(function(x){tot+=x[1]});var v=r()*tot;for(var i=0;i<list.length;i++){v-=list[i][1];if(v<=0)return list[i][0]}return list[0][0]}
+function genSample(){
+  var r=rng(11),now=new Date(),out=[],id=1;
+  var hw=[0,0,0,0,0,.2,.8,2.2,4,4.4,3.4,2.8,3.4,4,3.2,2.6,2.8,3.8,4.2,3,1.8,.9,.3,0].map(function(w,h){return[h,w]});
+  var depA=[[50,8],[100,18],[200,16],[300,9],[500,18],[1000,14],[2000,8],[3000,4],[5000,3],[10000,2]];
+  var wdA=[[100,6],[200,10],[300,8],[500,20],[1000,22],[2000,14],[3000,7],[5000,8],[10000,5],[20000,1]];
+  var airA=[[20,10],[50,25],[100,25],[200,8],[500,4]];
+  for(var d=30;d>=0;d--){
+    var day=new Date(now.getFullYear(),now.getMonth(),now.getDate()-d);
+    var dm=day.getDate(),w=dow(day);
+    var f=(w===4?1.2:w===5?1.1:w===6?.7:1)*(dm>=15?1.35:dm<=3?1.15:1)*(0.85+0.3*r());
+    var n=Math.round(75*f);
+    for(var i=0;i<n;i++){
+      var h=pick(r,hw),m=Math.floor(r()*60),s=Math.floor(r()*60);
+      var t=new Date(day.getFullYear(),day.getMonth(),day.getDate(),h,m,s).getTime();
+      if(t>now.getTime())continue;
+      var u=r(),ty,a;
+      if(u<.1){ty='air';a=pick(r,airA)}
+      else if(u<.1+.9*(h<12?.55:h<16?.45:.6)){ty='wd';a=pick(r,wdA)}
+      else{ty='dep';a=pick(r,depA)}
+      if(ty!=='air'&&r()<.2)a=Math.max(10,Math.round(a*(0.6+r()*.8)/10)*10);
+      out.push({id:'SM'+(id++),t:t,type:ty,amt:a});
+    }
+  }
+  out.sort(function(a,b){return a.t-b.t});
+  S.txns=out;S.sample=true;
+  S.shifts=S.shifts.filter(function(s){return !s.sample});
+  var y=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1);
+  [['Mercy',6,30,14,0,38000,160000,15000,0,300,-150],['Brian',14,0,21,30,52000,148000,18000,0,0,0],['Mercy',6,30,14,0,41000,170000,14000,500,200,-80]].forEach(function(c,i){
+    var day=new Date(y.getFullYear(),y.getMonth(),y.getDate()-(i===2?2:i===0?0:0));
+    if(i===2)day=new Date(y.getFullYear(),y.getMonth(),y.getDate()-2);
+    var v={name:c[0],start:inp(new Date(day.getFullYear(),day.getMonth(),day.getDate(),c[1],c[2])),end:inp(new Date(day.getFullYear(),day.getMonth(),day.getDate(),c[3],c[4])),
+      oc:c[5],oe:c[6],oa:c[7],topup:0,banked:c[8],spend:c[9],airs:0,airr:0,cc:0,ce:0,ca:0};
+    v.airs=windowSum(v,'air');
+    var x=calcShift(v);
+    v.cc=x.exp.c+c[10];v.ce=x.exp.e;v.ca=x.exp.a;
+    var fin=calcShift(v);fin.sample=true;fin.id='s'+i;S.shifts.push(fin);
+  });
+  save();
+}
+
+/* ---------- analytics ---------- */
+var BANDS=[[0,100,'Below 100'],[100,500,'100 – 499'],[500,1000,'500 – 999'],[1000,2000,'1,000 – 1,999'],[2000,5000,'2,000 – 4,999'],[5000,10000,'5,000 – 9,999'],[10000,1e12,'10,000 +']];
+function inRange(){
+  if(S.range==='all')return S.txns;
+  var from=Date.now()-(+S.range)*864e5;
+  return S.txns.filter(function(t){return t.t>=from});
+}
+function estCom(t){
+  if(t.type!=='dep'&&t.type!=='wd')return 0;
+  for(var i=0;i<S.bands.length;i++){var b=S.bands[i];if(t.amt>=b[0]&&t.amt<=b[1])return t.type==='dep'?b[2]:b[3]}
+  return 0;
+}
+function sums(list,type){var n=0,a=0;list.forEach(function(t){if(t.type===type){n++;a+=t.amt}});return{n:n,a:a}}
+function hourStats(list,type){
+  var c=Array(24).fill(0),a=Array(24).fill(0);
+  list.forEach(function(t){if(t.type===type){var h=new Date(t.t).getHours();c[h]++;a[h]+=t.amt}});
+  return{c:c,a:a};
+}
+function nDays(list){var s={};list.forEach(function(t){s[dkey(new Date(t.t))]=1});return Object.keys(s).length}
+
+/* ---------- shift maths ---------- */
+function windowTxns(v){
+  var s=new Date(v.start).getTime(),e=new Date(v.end).getTime();
+  return S.txns.filter(function(t){return t.t>=s&&t.t<e});
+}
+function windowSum(v,type){var a=0;windowTxns(v).forEach(function(t){if(t.type===type)a+=t.amt});return a}
+function calcShift(v){
+  var w=windowTxns(v),D=0,W=0,nD=0,nW=0;
+  w.forEach(function(t){if(t.type==='dep'){D+=t.amt;nD++}else if(t.type==='wd'){W+=t.amt;nW++}});
+  var exp={
+    c:v.oc+D-W-v.topup-v.banked-v.spend+v.airs,
+    e:v.oe-D+W+v.topup-v.airr,
+    a:v.oa-v.airs+v.airr};
+  var vr={c:v.cc-exp.c,e:v.ce-exp.e,a:v.ca-exp.a};
+  var o={};for(var k in v)o[k]=v[k];
+  o.D=D;o.W=W;o.nD=nD;o.nW=nW;o.exp=exp;o.vr=vr;o.total=vr.c+vr.e+vr.a;
+  return o;
+}
+function pill(v){
+  var a=Math.abs(Math.round(v));
+  return a===0?'<span class="pill ok">Balanced</span>':a<=100?'<span class="pill warn">Minor</span>':'<span class="pill bad">Investigate</span>';
+}
+var sgn=function(n){n=Math.round(n);return (n>0?'+':'')+nf(n)};
+var vcls=function(n){return Math.round(n)<0?'neg':Math.round(n)>0?'pos':''};
+
+/* ---------- chrome ---------- */
+var TABS=[['insights','Statement & insights','amounts, peak hours'],['shift','Mahesabu','close a shift'],['float','Float & commission','daily position'],['alerts','Alerts','when float runs out']];
+function head(){
+  $('status').innerHTML=S.txns.length?(S.sample?'<b>Sample data</b> · ':'')+'<b>'+nf(S.txns.length)+'</b> transactions · '+nDays(S.txns)+' days':'No statement loaded';
+}
+function tabs(){
+  $('tabs').innerHTML=TABS.map(function(t){return '<button role="tab" aria-selected="'+(S.tab===t[0])+'" onclick="go(\''+t[0]+'\')">'+t[1]+'<small>'+t[2]+'</small></button>'}).join('');
+}
+function go(t){S.tab=t;save();tabs();render()}
+function render(){
+  head();tabs();
+  var v=$('view');
+  v.innerHTML=S.tab==='insights'?viewInsights():S.tab==='shift'?viewShift():S.tab==='float'?viewFloat():viewAlerts();
+  if(S.tab==='shift')initShift();
+  if(S.tab==='alerts')updateAlerts();
+}
+
+/* ---------- tab 1: statement + insights ---------- */
+function uploadCard(){
+  return '<div class="card"><h2>Daily statement</h2>'+
+  '<p class="sub">At close, download the day\'s statement from the M-PESA Organization Portal or the M-PESA app and upload it here as CSV, or paste the rows. Receipts already loaded are skipped, so overlapping days are safe. PDF statements need converting to CSV first.</p>'+
+  '<div class="row"><input type="file" id="file" accept=".csv,.txt,text/csv,text/plain" style="max-width:300px">'+
+  '<button class="btn" onclick="loadSample()">Load sample month</button>'+
+  (S.txns.length?'<button class="btn" onclick="clearAll()">Clear all data</button>':'')+'</div>'+
+  '<label for="paste">Or paste statement rows<textarea id="paste" placeholder="Receipt No,Completion Time,Details,Transaction Status,Paid In,Withdrawn,Balance"></textarea></label>'+
+  '<div class="row"><button class="btn primary" onclick="importText($(\'paste\').value)">Import pasted rows</button></div>'+
+  '<div class="msg" id="msg" hidden></div></div>';
+}
+function viewInsights(){
+  if(!S.txns.length)return uploadCard()+'<div class="card empty"><h2>Nothing to analyse yet</h2><p class="sub">Load a statement or the sample month to see the most common amounts, peak hours and the monthly rhythm of your shop.</p></div>';
+  var L=inRange(),D=sums(L,'dep'),W=sums(L,'wd'),A=sums(L,'air');
+  var com=0;L.forEach(function(t){com+=estCom(t)});
+  var html=uploadCard();
+  html+='<div class="row"><b>Period</b>'+[['7','Last 7 days'],['30','Last 30 days'],['all','All data']].map(function(r){return '<button class="btn sm" aria-pressed="'+(S.range===r[0])+'" onclick="setRange(\''+r[0]+'\')">'+r[1]+'</button>'}).join('')+'</div>';
+  html+='<div class="kpis">'+
+   '<div class="kpi dep"><span>Deposits ('+nf(D.n)+')</span><strong>'+kes(D.a)+'</strong></div>'+
+   '<div class="kpi wd"><span>Withdrawals ('+nf(W.n)+')</span><strong>'+kes(W.a)+'</strong></div>'+
+   '<div class="kpi"><span>Net e-float change</span><strong>'+sgn(W.a-D.a)+'</strong></div>'+
+   '<div class="kpi"><span>Airtime sold ('+nf(A.n)+')</span><strong>'+kes(A.a)+'</strong></div>'+
+   '<div class="kpi"><span>Est. commission</span><strong>'+kes(com)+'</strong></div></div>';
+  html+='<div class="grid g2">'+bandCard('dep',L)+bandCard('wd',L)+'</div>';
+  html+=heatCard(L);
+  html+=domCard(L);
+  return html;
+}
+function bandCard(type,L){
+  var list=L.filter(function(t){return t.type===type}),cnt=BANDS.map(function(){return 0}),amt={};
+  list.forEach(function(t){for(var i=0;i<BANDS.length;i++){if(t.amt>=BANDS[i][0]&&t.amt<BANDS[i][1]){cnt[i]++;break}}amt[t.amt]=(amt[t.amt]||0)+1});
+  var mx=Math.max.apply(null,cnt.concat([1])),top=cnt.indexOf(mx),tot=list.length||1;
+  var tops=Object.keys(amt).sort(function(a,b){return amt[b]-amt[a]}).slice(0,6);
+  var name=type==='dep'?'Deposits':'Withdrawals';
+  return '<div class="card"><h3>'+name+' by amount</h3><div class="bars">'+BANDS.map(function(b,i){
+    return '<div class="bar'+(i===top?' top':'')+'"><span class="lbl">'+b[2]+'</span><span class="t"><i class="'+type+'-fill" style="width:'+(cnt[i]/mx*100)+'%"></i></span><span class="mono">'+nf(cnt[i])+' · '+Math.round(cnt[i]/tot*100)+'%</span></div>'}).join('')+'</div>'+
+    '<p class="note">Most common: <b>'+BANDS[top][2]+'</b>. Exact amounts seen most:</p><div class="chips">'+tops.map(function(a){return '<span class="amt">'+nf(+a)+' ×'+amt[a]+'</span>'}).join('')+'</div></div>';
+}
+function heatCard(L){
+  var type=S.hm,H=5,N=19,grid=[];
+  for(var d=0;d<7;d++)grid.push(Array(24).fill(0));
+  var days={};L.forEach(function(t){if(t.type===type){var dt=new Date(t.t);grid[dow(dt)][dt.getHours()]++}});
+  var mx=1;grid.forEach(function(r){r.forEach(function(v){if(v>mx)mx=v})});
+  var hs=hourStats(L,type),order=[];
+  for(var h=0;h<24;h++)order.push(h);
+  order.sort(function(a,b){return hs.c[b]-hs.c[a]});
+  var nd=Math.max(1,nDays(L)),name=type==='dep'?'deposits':'withdrawals';
+  var cells='<span></span>';
+  for(var h=H;h<H+N;h++)cells+='<span>'+(h%2===1?h:'')+'</span>';
+  for(var d=0;d<7;d++){cells+='<span class="d">'+DAYS[d]+'</span>';
+    for(var h=H;h<H+N;h++){var v=grid[d][h];cells+='<i style="--i:'+(v/mx).toFixed(2)+'" title="'+DAYS[d]+' '+hr(h)+' · '+v+' '+name+'"></i>'}}
+  return '<div class="card"><div class="row" style="justify-content:space-between"><h3>Busy hours</h3><div class="row">'+
+    '<button class="btn sm" aria-pressed="'+(type==='dep')+'" onclick="setHm(\'dep\')">Deposits</button><button class="btn sm" aria-pressed="'+(type==='wd')+'" onclick="setHm(\'wd\')">Withdrawals</button></div></div>'+
+    '<div class="grid g2"><div class="scroll"><div class="hm '+type+'">'+cells+'</div><p class="note" style="margin-top:6px">Darker means more '+name+'. Hours of the day across, days of the week down.</p></div>'+
+    '<div class="peaks"><h3>Top 3 hours for '+name+'</h3>'+order.slice(0,3).map(function(h){return '<div><span class="mono">'+hr(h)+' – '+hr((h+1)%24)+'</span><span>'+nf(hs.c[h]/nd)+' a day · '+kes(hs.a[h]/nd)+'</span></div>'}).join('')+
+    '<p class="note">Averages per day over '+nd+' days of data.</p></div></div></div>';
+}
+function domCard(L){
+  var tot=Array(32).fill(0),seen=Array(32).fill(0),dd={};
+  L.forEach(function(t){if(t.type==='dep'||t.type==='wd'){var d=new Date(t.t),k=dkey(d);tot[d.getDate()]+=t.amt;dd[k]=d.getDate()}});
+  Object.keys(dd).forEach(function(k){seen[dd[k]]++});
+  var avg=tot.map(function(v,i){return seen[i]?v/seen[i]:0}),mx=Math.max.apply(null,avg.concat([1]));
+  var a=0,an=0,b=0,bn=0;for(var i=1;i<=31;i++){if(seen[i]){if(i<15){a+=avg[i];an++}else{b+=avg[i];bn++}}}
+  var txt=an&&bn?'Days 15–31 average <b>'+kes(b/bn)+'</b> a day against <b>'+kes(a/an)+'</b> on days 1–14 ('+(b/bn/(a/an)).toFixed(1)+'×). Plan float top-ups for before the 15th.':'Load more than one month of data to compare the first and second half of the month.';
+  var bars='',ax='';
+  for(var i=1;i<=31;i++){bars+='<i class="'+(i>=15?'late':'')+'" style="height:'+(avg[i]/mx*100)+'%" title="Day '+i+' · '+kes(avg[i])+' average"></i>';ax+='<span>'+(i===1||i%7===1?i:'')+'</span>'}
+  return '<div class="card"><h3>Money moved by day of month</h3><div class="scroll"><div class="dom">'+bars+'</div><div class="domax">'+ax+'</div></div><p class="note">'+txt+'</p></div>';
+}
+function setRange(r){S.range=r;save();render()}
+function setHm(t){S.hm=t;save();render()}
+function loadSample(){genSample();render()}
+function clearAll(){S.txns=[];S.shifts=[];S.sample=false;save();render()}
+
+/* ---------- tab 2: mahesabu ---------- */
+var SHIFT_IDS=['sh-name','sh-start','sh-end','sh-oc','sh-oe','sh-oa','sh-topup','sh-banked','sh-spend','sh-airs','sh-airr','sh-cc','sh-ce','sh-ca'];
+function fld(id,label,type,val,hint){
+  return '<label for="'+id+'">'+label+'<input id="'+id+'" type="'+(type||'number')+'" '+(type==='text'||type==='datetime-local'?'':'inputmode="numeric" step="1" ')+'value="'+esc(val==null?'':val)+'" oninput="calc()">'+(hint?'<span class="note">'+hint+'</span>':'')+'</label>';
+}
+function viewShift(){
+  return '<div class="grid g2"><div class="card"><h2>Close a shift</h2><p class="sub">Enter the openings and what the attendant counted. Deposits and withdrawals for the shift come from the statement you loaded.</p>'+
+   '<div class="fields">'+fld('sh-name','Attendant','text','')+fld('sh-start','Shift start','datetime-local','')+fld('sh-end','Shift end','datetime-local','')+'</div>'+
+   '<h3>Opening</h3><div class="fields">'+fld('sh-oc','Cash in till')+fld('sh-oe','E-float')+fld('sh-oa','Airtime float')+'</div>'+
+   '<h3>During the shift</h3><div class="fields">'+fld('sh-topup','E-float bought with cash',0,0,'Cash paid out at bank or super-agent')+fld('sh-banked','Cash banked or handed to owner',0,0)+fld('sh-spend','Cash expenses',0,0)+fld('sh-airs','Airtime sold for cash',0,0,'Filled from statement, edit if needed')+fld('sh-airr','Airtime float restocked',0,0,'Paid from e-float')+'</div>'+
+   '<h3>Closing count</h3><div class="fields">'+fld('sh-cc','Cash counted')+fld('sh-ce','E-float balance','number','','From *334# or the app')+fld('sh-ca','Airtime balance')+'</div></div>'+
+   '<div class="card" id="shout"></div></div>'+
+   '<div class="card"><h2>Past shifts</h2><div id="shlist"></div></div>';
+}
+function initShift(){
+  var now=new Date(),y=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1);
+  var d={name:S.txns.length?'Mercy':'',start:inp(new Date(y.getFullYear(),y.getMonth(),y.getDate(),14,0)),end:inp(new Date(y.getFullYear(),y.getMonth(),y.getDate(),21,30)),oc:S.txns.length?45000:0,oe:S.txns.length?150000:0,oa:S.txns.length?16000:0,topup:0,banked:0,spend:S.txns.length?200:0,airs:0,airr:0,cc:0,ce:0,ca:0};
+  if(S.txns.length){d.airs=windowSum(d,'air');var x=calcShift(d);d.cc=x.exp.c-120;d.ce=x.exp.e;d.ca=x.exp.a}
+  var map={'sh-name':d.name,'sh-start':d.start,'sh-end':d.end,'sh-oc':d.oc,'sh-oe':d.oe,'sh-oa':d.oa,'sh-topup':d.topup,'sh-banked':d.banked,'sh-spend':d.spend,'sh-airs':d.airs,'sh-airr':d.airr,'sh-cc':d.cc,'sh-ce':d.ce,'sh-ca':d.ca};
+  for(var k in map)$(k).value=map[k];
+  calc();listShifts();
+}
+function readShift(){
+  var g=function(id){return +$(id).value||0};
+  return{name:$('sh-name').value.trim(),start:$('sh-start').value,end:$('sh-end').value,oc:g('sh-oc'),oe:g('sh-oe'),oa:g('sh-oa'),topup:g('sh-topup'),banked:g('sh-banked'),spend:g('sh-spend'),airs:g('sh-airs'),airr:g('sh-airr'),cc:g('sh-cc'),ce:g('sh-ce'),ca:g('sh-ca')};
+}
+function calc(){
+  var x=calcShift(readShift()),el=$('shout');if(!el)return;
+  var rows=[['Cash','c'],['E-float','e'],['Airtime','a']].map(function(r){var k=r[1];
+    return '<tr><td>'+r[0]+'</td><td class="r num">'+nf(x.exp[k])+'</td><td class="r num">'+nf(x[{c:'cc',e:'ce',a:'ca'}[k]])+'</td><td class="r num '+vcls(x.vr[k])+'">'+sgn(x.vr[k])+'</td><td>'+pill(x.vr[k])+'</td></tr>'}).join('');
+  var open=x.oc+x.oe+x.oa,close=x.cc+x.ce+x.ca;
+  el.innerHTML='<h2>Mahesabu</h2>'+
+   '<div class="kpis"><div class="kpi dep"><span>Deposits in window ('+x.nD+')</span><strong>'+nf(x.D)+'</strong></div><div class="kpi wd"><span>Withdrawals in window ('+x.nW+')</span><strong>'+nf(x.W)+'</strong></div></div>'+
+   '<div class="scroll"><table><thead><tr><th></th><th class="r">Expected</th><th class="r">Counted</th><th class="r">Difference</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+   '<div class="alert"><div><b>Total difference: <span class="num '+vcls(x.total)+'">'+sgn(x.total)+'</span></b> '+pill(x.total)+
+   '<p class="note">Cash plus e-float plus airtime was '+kes(open)+' at opening and '+kes(close)+' at closing. A deposit moves value from e-float to cash, a withdrawal the other way, so only commission, expenses and banking should change the total.</p></div></div>'+
+   '<div class="row"><button class="btn primary" onclick="saveShift()">Save shift</button><span class="note">Cash expected = opening + deposits − withdrawals − float bought − banked − expenses + airtime cash sales.</span></div>';
+}
+function saveShift(){
+  var v=readShift();
+  if(!v.name){$('sh-name').focus();return}
+  var x=calcShift(v);x.id='s'+Date.now();S.shifts.unshift(x);save();listShifts();
+}
+function delShift(id){S.shifts=S.shifts.filter(function(s){return s.id!==id});save();listShifts()}
+function listShifts(){
+  var el=$('shlist');if(!el)return;
+  if(!S.shifts.length){el.innerHTML='<p class="sub">No shifts saved yet.</p>';return}
+  var by={};
+  S.shifts.forEach(function(s){var a=by[s.name]||(by[s.name]={n:0,net:0,bad:0});a.n++;a.net+=s.total;if(Math.abs(Math.round(s.total))>100)a.bad++});
+  var sum=Object.keys(by).map(function(k){var a=by[k];return '<div class="peaks"><div><b>'+esc(k)+'</b><span>'+a.n+' shifts · net <span class="num '+vcls(a.net)+'">'+sgn(a.net)+'</span> · '+a.bad+' to investigate</span></div></div>'}).join('');
+  el.innerHTML='<div class="grid g3">'+sum+'</div><div class="scroll"><table class="stack"><thead><tr><th>Date</th><th>Attendant</th><th class="r">Cash</th><th class="r">E-float</th><th class="r">Airtime</th><th class="r">Total</th><th></th><th></th></tr></thead><tbody>'+
+   S.shifts.map(function(s){return '<tr><td data-label="Shift">'+esc(s.start.slice(0,10))+' '+esc(s.start.slice(11))+'–'+esc(s.end.slice(11))+'</td><td data-label="Attendant">'+esc(s.name)+'</td>'+
+    ['c','e','a'].map(function(k){return '<td data-label="'+{c:'Cash',e:'E-float',a:'Airtime'}[k]+'" class="r num '+vcls(s.vr[k])+'">'+sgn(s.vr[k])+'</td>'}).join('')+'<td data-label="Total" class="r num '+vcls(s.total)+'">'+sgn(s.total)+'</td><td data-label="Status">'+pill(s.total)+'</td><td><button class="btn sm" onclick="delShift(\''+s.id+'\')">Delete</button></td></tr>'}).join('')+'</tbody></table></div>';
+}
+
+/* ---------- tab 3: float & commission ---------- */
+function viewFloat(){
+  if(!S.txns.length)return '<div class="card empty"><h2>No statement loaded</h2><p class="sub">Load a statement or the sample month on the first tab to see the daily float position and commission.</p><button class="btn primary" onclick="go(\'insights\')">Go to statement</button></div>';
+  var byDay={};
+  S.txns.forEach(function(t){var k=dkey(new Date(t.t));var d=byDay[k]||(byDay[k]={n:0,D:0,W:0,A:0,C:0,K:0});
+    if(t.type==='dep'){d.n++;d.D+=t.amt}else if(t.type==='wd'){d.n++;d.W+=t.amt}else if(t.type==='air')d.A+=t.amt;else if(t.type==='com')d.K+=t.amt;d.C+=estCom(t)});
+  var keys=Object.keys(byDay).sort().reverse().slice(0,14);
+  var now=new Date(),mk=now.getFullYear()+'-'+pad(now.getMonth()+1),est=0,real=0;
+  S.txns.forEach(function(t){var d=new Date(t.t);if(dkey(d).slice(0,7)===mk){est+=estCom(t);if(t.type==='com')real+=t.amt}});
+  var paid=S.payout||real,gap=paid-est;
+  var rows=keys.map(function(k){var d=byDay[k],net=d.W-d.D;
+    return '<tr><td data-label="Day">'+k+'</td><td data-label="Transactions" class="r num">'+d.n+'</td><td data-label="Deposits" class="r num" style="color:var(--dep)">'+nf(d.D)+'</td><td data-label="Withdrawals" class="r num" style="color:var(--wd)">'+nf(d.W)+'</td><td data-label="Net e-float" class="r num '+vcls(net)+'">'+sgn(net)+'</td><td data-label="Airtime" class="r num">'+nf(d.A)+'</td><td data-label="Est. commission" class="r num">'+nf(d.C)+'</td></tr>'}).join('');
+  var brows=S.bands.map(function(b,i){return '<tr><td class="num">'+nf(b[0])+' – '+nf(b[1])+'</td><td><input type="number" step="0.01" value="'+b[2]+'" onchange="setRate('+i+',2,this.value)" aria-label="Deposit commission band '+(i+1)+'"></td><td><input type="number" step="0.01" value="'+b[3]+'" onchange="setRate('+i+',3,this.value)" aria-label="Withdrawal commission band '+(i+1)+'"></td></tr>'}).join('');
+  return '<div class="card"><h2>Daily float position</h2><p class="sub">Positive net means withdrawals exceeded deposits: e-float went up and cash went down. Negative net means the reverse. Rebalance before either side runs dry.</p>'+
+   '<div class="scroll"><table class="stack"><thead><tr><th>Day</th><th class="r">Tx</th><th class="r">Deposits</th><th class="r">Withdrawals</th><th class="r">Net e-float</th><th class="r">Airtime</th><th class="r">Est. commission</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'+
+   '<div class="grid g2"><div class="card"><h3>Commission rates</h3><p class="note">Enter the commission per transaction for each band from your Safaricom agent agreement. They start at zero because I could not verify current rates. Estimates update everywhere once you fill them in.</p>'+
+   '<div class="scroll"><table><thead><tr><th>Band (KES)</th><th>Deposit</th><th>Withdrawal</th></tr></thead><tbody>'+brows+'</tbody></table></div></div>'+
+   '<div class="card"><h3>This month against payout</h3><div class="kpis"><div class="kpi"><span>Estimated from statement</span><strong>'+kes(est)+'</strong></div><div class="kpi"><span>Commission lines in statement</span><strong>'+kes(real)+'</strong></div></div>'+
+   '<label for="payout">Commission Safaricom actually paid this month (KES)<input id="payout" type="number" value="'+(S.payout||'')+'" onchange="setPayout(this.value)"></label>'+
+   '<div class="alert"><div><b>Difference: <span class="num '+vcls(gap)+'">'+sgn(gap)+'</span></b><p class="note">'+(est===0?'Fill in the rates to get an estimate.':Math.abs(gap)<=Math.max(50,est*.02)?'Payout is within 2% of the estimate.':gap<0?'Paid less than estimated. Check for reversed or failed transactions, or an out-of-date rate.':'Paid more than estimated. Check your rates.')+'</p></div></div></div></div>';
+}
+function setRate(i,j,v){S.bands[i][j]=+v||0;save()}
+function setPayout(v){S.payout=+v||0;save();render()}
+
+/* ---------- tab 4: alerts and forecast ---------- */
+function viewAlerts(){
+  if(!S.txns.length)return '<div class="card empty"><h2>No statement loaded</h2><p class="sub">The forecast uses your own hourly history. Load a statement or the sample month first.</p><button class="btn primary" onclick="go(\'insights\')">Go to statement</button></div>';
+  var h=Math.min(20,Math.max(6,new Date().getHours()));
+  var g=function(k,d){try{var v=JSON.parse(localStorage.getItem('am-'+k));return v==null?d:v}catch(e){return d}};
+  return '<div class="card"><h2>Will the float last the day?</h2><p class="sub">Starting from your balances now, the forecast replays your average deposits and withdrawals for each hour of the day. Example balances are filled in, replace them with yours.</p>'+
+   '<div class="fields">'+
+   '<label for="al-e">E-float now<input id="al-e" type="number" value="'+g('e',90000)+'" oninput="updateAlerts()"></label>'+
+   '<label for="al-c">Cash in till now<input id="al-c" type="number" value="'+g('c',60000)+'" oninput="updateAlerts()"></label>'+
+   '<label for="al-h0">Forecast from hour<input id="al-h0" type="number" min="5" max="22" value="'+h+'" oninput="updateAlerts()"></label>'+
+   '<label for="al-h1">Shop closes at hour<input id="al-h1" type="number" min="6" max="23" value="'+g('h1',21)+'" oninput="updateAlerts()"></label>'+
+   '<label for="al-te">Keep e-float above<input id="al-te" type="number" value="'+g('te',30000)+'" oninput="updateAlerts()"></label>'+
+   '<label for="al-tc">Keep cash above<input id="al-tc" type="number" value="'+g('tc',30000)+'" oninput="updateAlerts()"></label></div></div>'+
+   '<div class="card" id="al-out"></div>';
+}
+function updateAlerts(){
+  var out=$('al-out');if(!out)return;
+  var g=function(id){return +$(id).value||0};
+  var e0=g('al-e'),c0=g('al-c'),h0=Math.round(g('al-h0')),h1=Math.round(g('al-h1')),te=g('al-te'),tc=g('al-tc');
+  try{localStorage.setItem('am-e',e0);localStorage.setItem('am-c',c0);localStorage.setItem('am-h1',h1);localStorage.setItem('am-te',te);localStorage.setItem('am-tc',tc)}catch(x){}
+  if(h1<=h0){out.innerHTML='<p class="sub">Set the closing hour after the starting hour.</p>';return}
+  var dp=hourStats(S.txns,'dep'),wd=hourStats(S.txns,'wd'),nd=Math.max(1,nDays(S.txns));
+  var E=[e0],C=[c0],ex=null,cx=null;
+  for(var h=h0;h<h1;h++){
+    var d=dp.a[h]/nd,w=wd.a[h]/nd;
+    var e=E[E.length-1]-d+w,c=C[C.length-1]+d-w;
+    E.push(e);C.push(c);
+    if(ex==null&&e<te)ex=h+1;
+    if(cx==null&&c<tc)cx=h+1;
+  }
+  var minE=Math.min.apply(null,E),minC=Math.min.apply(null,C);
+  var al='';
+  if(e0<te)al+=alertRow('bad','E-float is already below your limit','Top up now.');
+  else if(ex!=null)al+=alertRow('warn','E-float drops below '+kes(te)+' by about '+hr(ex),'Buy about '+kes(te-minE)+' of float before then to reach closing.');
+  if(c0<tc)al+=alertRow('bad','Cash is already below your limit','Withdraw from the bank or move cash in.');
+  else if(cx!=null)al+=alertRow('warn','Cash drops below '+kes(tc)+' by about '+hr(cx),'Plan to bring in about '+kes(tc-minC)+' before then.');
+  if(!al)al=alertRow('ok','Both balances should last until closing','Lowest forecast: e-float '+kes(minE)+', cash '+kes(minC)+'.');
+  // chart
+  var W=640,H=250,l=52,r=14,t=12,b=26,all=E.concat(C,[te,tc]),lo=Math.min.apply(null,all),hi=Math.max.apply(null,all);
+  var span=hi-lo||1;lo-=span*.05;hi+=span*.05;
+  var X=function(i){return l+(W-l-r)*i/(h1-h0)},Y=function(v){return t+(H-t-b)*(1-(v-lo)/(hi-lo))};
+  var grid='',k;
+  for(k=0;k<=4;k++){var v=lo+(hi-lo)*k/4;grid+='<line class="gridl" x1="'+l+'" x2="'+(W-r)+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text class="ax" x="'+(l-6)+'" y="'+(Y(v)+3)+'" text-anchor="end">'+sk(v)+'</text>'}
+  var step=(h1-h0)>10?2:1;
+  for(k=0;k<=h1-h0;k+=step)grid+='<text class="ax" x="'+X(k)+'" y="'+(H-8)+'" text-anchor="middle">'+pad(h0+k)+'</text>';
+  var pl=function(a){return a.map(function(v,i){return X(i).toFixed(1)+','+Y(v).toFixed(1)}).join(' ')};
+  var dots='';
+  if(ex!=null)dots+='<circle class="f-bad" cx="'+X(ex-h0)+'" cy="'+Y(E[ex-h0])+'" r="4.5"/>';
+  if(cx!=null)dots+='<circle class="f-bad" cx="'+X(cx-h0)+'" cy="'+Y(C[cx-h0])+'" r="4.5"/>';
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Forecast of e-float and cash balances by hour">'+grid+
+   '<line class="thr" style="stroke:var(--dep)" x1="'+l+'" x2="'+(W-r)+'" y1="'+Y(te)+'" y2="'+Y(te)+'"/><line class="thr" style="stroke:var(--wd)" x1="'+l+'" x2="'+(W-r)+'" y1="'+Y(tc)+'" y2="'+Y(tc)+'"/>'+
+   '<polyline class="l-dep" points="'+pl(E)+'"/><polyline class="l-wd" points="'+pl(C)+'"/>'+dots+'</svg>';
+  // calendar watch
+  var cal=domNote();
+  out.innerHTML='<div class="alerts" style="display:flex;flex-direction:column;gap:8px">'+al+'</div><div class="legend"><span><b style="background:var(--dep)"></b>E-float</span><span><b style="background:var(--wd)"></b>Cash</span><span>Dashed lines are your limits. Red dots mark where a limit is crossed.</span></div><div class="scroll">'+svg+'</div>'+
+   '<p class="note">Based on '+nd+' days of history, averaged by hour. It does not know about paydays or special days, so treat it as a guide.</p>'+cal;
+}
+function alertRow(sev,title,body){return '<div class="alert"><span class="pill '+sev+'">'+{bad:'Now',warn:'Soon',ok:'OK'}[sev]+'</span><div><b>'+title+'</b><p class="note">'+body+'</p></div></div>'}
+function domNote(){
+  var tot={},seen={};
+  S.txns.forEach(function(t){if(t.type==='dep'||t.type==='wd'){var d=new Date(t.t),k=dkey(d);tot[k]=(tot[k]||0)+t.amt}});
+  var a=0,an=0,b=0,bn=0;
+  Object.keys(tot).forEach(function(k){var d=+k.slice(8);if(d<15){a+=tot[k];an++}else{b+=tot[k];bn++}});
+  if(!an||!bn)return '';
+  var ratio=(b/bn)/(a/an),today=new Date().getDate(),days=15-today;
+  var when=days>0?'The 15th is in '+days+' day'+(days===1?'':'s')+'. ':today>=15?'You are in the busier half of the month. ':'';
+  return '<div class="alert"><span class="pill '+(ratio>1.15?'warn':'ok')+'">Calendar</span><div><b>Second half of the month runs '+ratio.toFixed(1)+'× busier</b><p class="note">'+when+'Average daily volume is '+kes(b/bn)+' from the 15th against '+kes(a/an)+' before it.</p></div></div>';
+}
+
+/* ---------- boot ---------- */
+document.addEventListener('change',function(e){
+  if(e.target&&e.target.id==='file'&&e.target.files[0]){
+    var f=e.target.files[0],rd=new FileReader();
+    rd.onload=function(){importText(String(rd.result))};
+    rd.readAsText(f);
+  }
+});
+if(!S.txns.length&&!S.shifts.length){genSample()}
+render();
+</script>
+</body>
+</html>
